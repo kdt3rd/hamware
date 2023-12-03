@@ -11,6 +11,32 @@
 int main( int argc, char *argv[] )
 {
     printf( "\nStarting Hamware version " VERSION_STRING "\n" );
+
+    /* 1. Load / initialize the configuration */
+
+    /* 2. Load plugins
+     *    a) audio modes
+     *         - voice
+     *         - digital
+     *            * teletype / rtty
+     *            * fsk
+     *            * ft8
+     *            * morse code
+     *            * custom
+     *    b) frequency control - hamlib
+     *    c) mode switching - hamlib
+     *    d) tuner
+     *    e) noise reduction control
+     */
+
+    /* 3. Connect to radio (error if fail) */
+
+    /* 4. Create jsonrpc server */
+    /* 5. Create http server */
+
+    /* 6. main loop */
+    
+    /*
     if ( daemonize( -1, 1 ) != 0 )
         exit( -1 );
 
@@ -19,6 +45,6 @@ int main( int argc, char *argv[] )
         printf( "running...\n" );
         sleep( 1 );
     }
-
+    */
     return 0;
 }
