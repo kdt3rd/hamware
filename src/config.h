@@ -1,6 +1,11 @@
-// SPDX-License-Identifier: MIT
+/*
+ * Copyright (c) 2023 Authors of hamware
+ * SPDX-License-Identifier: MIT
+ */
 
 #pragma once
+
+/* compile-time constants */
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 0

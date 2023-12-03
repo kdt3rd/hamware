@@ -1,53 +1,135 @@
 // SPDX-License-Identifier: MIT
 
 #include "config.h"
+
 #include "daemonize.h"
 
+#include "configuration.h"
+#include "plugins.h"
+#include "http.h"
+#include "jsonrpc.h"
+
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
-extern void init_config( struct configuration *conf );
-extern int load_config_toml( struct configuration *conf );
-extern void destroy_config( struct configuration *conf );
+typedef struct _r_conn
+{
+    radio_provider *plug;
+    void *context;
+} radio_connection;
 
-extern int load_plugins( struct configuration *conf, struct plugin_store *plugs );
+typedef struct _ham_server
+{
+    configuration config;
+    plugin_store plugins;
 
-extern int connect_radio( struct configuration *conf, struct radio_connection *radio );
-extern void disconnect_radio( struct radio_connection *radio );
+    radio_connection r;
 
-extern int start_jsonrpc_server( struct configuration *conf, struct jsonrpc_server *srvr );
-extern void shutdown_jsonrpc_server( struct jsonrpc_server *srvr );
+    jsonrpc_server jrpc;
+    http_server http;
+} ham_server;
 
-extern int start_http_server( struct configuration *conf, struct http_server *srvr );
-extern void shutdown_http_server( struct http_server *srvr );
+static int keep_running = 1;
+static void interrupt_handler( int sig )
+{
+    keep_running = 0;
+}
 
-extern int handle_socket_data( struct jsonrpc_server *jrpc, struct http_server *hserver, struct client_connections *connections );
-extern int handle_radio_data( struct radio_connection *radio, struct client_connections *connections );
+static int connect_radio( ham_server *server )
+{
+    radio_provider *prov = NULL;
+    if ( server->plugins.radio_providers )
+    {
+        prov = server->plugins.radio_providers;
+        if ( server->config.radio_plugname )
+        {
+            prov = NULL;
+            for ( int p = 0; p < server->plugins.num_radio_providers; ++p )
+            {
+                if ( 0 == strcmp( server->plugins.radio_providers[p].info.name,
+                                  server->config.radio_plugname ) )
+                {
+                    prov = server->plugins.radio_providers + p;
+                    printf( "\nUsing radio provider '%s'\n", prov->info.name );
+                    break;
+                }
+            }
+            if ( ! prov )
+            {
+                printf( "\nUnable to find radio provider '%s'\n", server->config.radio_plugname );
+                return 1;
+            }
+        }
+        else
+        {
+            printf( "\nUsing default radio provider '%s'\n", prov->info.name );
+        }
+        server->r.plug = prov;
+        server->r.context = ( prov->create ) ? prov->create() : NULL;
+        return 0;
+    }
+    
+    printf( "\nNo radio providers found\n" );
+    return 1;        
+}
+
+static void disconnect_radio( ham_server *server )
+{
+    if ( server->r.plug )
+    {
+        if ( server->r.plug->close_radio )
+            server->r.plug->close_radio( server->r.context );
+        if ( server->r.plug->destroy )
+            server->r.plug->destroy( server->r.context );
+
+        server->r.plug = NULL;
+        server->r.context = NULL;
+    }
+}
+
+static int handle_socket_data( ham_server *server )
+{
+    return 0;
+}
+
+static int handle_radio_data( ham_server *server )
+{
+    /* TODO: change this if hamlib can do a file descriptor so we can wait */
+    if ( server->r.plug )
+    {
+    }
+    return 1;
+}
 
 int main( int argc, char *argv[] )
 {
-    struct configuration conf;
-    struct plugin_store plugs = {0};
-    struct client_connections connections = {0};
-    struct radio_connection radio;
-    struct jsonrpc_server jrpc;
-    struct http_server hserver;
+    ham_server server;
     int rv;
 
     /* 0. initialize interrupt / signal handling */
+    signal( SIGPIPE, SIG_IGN );
+    signal( SIGINT, interrupt_handler );
 
     /* 1. Load / initialize the configuration */
     printf( "\nStarting Hamware version " VERSION_STRING "\n" );
-    init_config( &conf );
-    rv = load_config_toml( &conf );
+    memset( &server, 0, sizeof(ham_server) );
+
+    rv = init_config( &(server.config), argv, argc );
     if ( rv != 0 )
     {
         printf( "\nError loading configuration\n" );
-        destroy_config( &conf );
+        destroy_config( &(server.config) );
         return rv;
     }
+
+    /* TODO: maybe bring this back eventually
+    if ( daemonize( -1, 1 ) != 0 )
+        exit( -1 );
+    */
 
     /* 2. Load plugins
      *    a) audio modes
@@ -62,20 +144,21 @@ int main( int argc, char *argv[] )
      *       frequency, mode, tuner, noise reduction
      *         - hamlib
      */
-    rv = load_plugins( &conf, &plugs );
+    rv = load_plugins( &(server.config), &(server.plugins) );
     if ( rv != 0 )
     {
         printf( "\nError loading plugins\n" );
-        destroy_config( &conf );
+        destroy_config( &(server.config) );
         return rv;
     }
 
     /* 3. Connect to radio (error if fail) */
-    rv = connect_radio( &conf, &plugs, &radio );
+    rv = connect_radio( &(server) );
     if ( rv != 0 )
     {
         printf( "\nError connecting to the radio\n" );
-        destroy_config( &conf );
+        destroy_plugins( &(server.plugins) );
+        destroy_config( &(server.config) );
         return rv;
     }
 
@@ -83,12 +166,13 @@ int main( int argc, char *argv[] )
      *
      * add rpc functiosn for freq. control, mode switch, tuner controls, NR controls
      */
-    rv = create_jsonrpc_server( &conf, &jrpc );
+    rv = start_jsonrpc_server( &(server.config), &(server.jrpc) );
     if ( rv != 0 )
     {
         printf( "\nError creating JSON/RPC server\n" );
-        disconnect_radio( &radio );
-        destroy_config( &conf );
+        disconnect_radio( &(server) );
+        destroy_plugins( &(server.plugins) );
+        destroy_config( &(server.config) );
         return rv;
     }
     
@@ -96,33 +180,42 @@ int main( int argc, char *argv[] )
      *
      * websocket handler for streams, audio / data
      */
-    rv = create_http_server( &conf, &hserver );
+    rv = start_http_server( &(server.config), &(server.http) );
     if ( rv != 0 )
     {
         printf( "\nError creating HTTP server\n" );
-        shutdown_jsonrpc_server( &jrpc );
-        disconnect_radio( &radio );
-        destroy_config( &conf );
+        shutdown_jsonrpc_server( &(server.jrpc) );
+        disconnect_radio( &(server) );
+        destroy_plugins( &(server.plugins) );
+        destroy_config( &(server.config) );
         return rv;
     }
 
     /* 6. main loop */
-    while ( 1 )
+    while ( keep_running )
     {
-        handle_socket_data( &jrpc, &hserver, &connections );
-        handle_radio_data( &radio, &connections );
+        rv = handle_socket_data( &server );
+        if ( rv != 0 )
+        {
+            printf( "\nError handling server, exiting...\n" );
+            break;
+        }
+        
+        rv = handle_radio_data( &server );
+        if ( rv != 0 )
+        {
+            printf( "\nError handling radio data, exiting...\n" );
+            break;
+        }
     }
 
     /* 7. cleanup, destroy */
-    shutdown_http_server( &hserver );
-    shutdown_jsonrpc_server( &jrpc );
-    disconnect_radio( &radio );
-    destroy_config( &conf );
+    printf( "\nShutting down...\n" );
+    shutdown_http_server( &(server.http) );
+    shutdown_jsonrpc_server( &(server.jrpc) );
+    disconnect_radio( &(server) );
+    destroy_plugins( &(server.plugins) );
+    destroy_config( &(server.config) );
     
-    /* 
-    if ( daemonize( -1, 1 ) != 0 )
-        exit( -1 );
-
-    */
     return 0;
 }
