@@ -9,14 +9,20 @@
 #include <malloc.h>
 #include <string.h>
 
+rig_model_t myrigmodelid = 3061;
+
 typedef struct hamlib_context
 {
     /* TODO: what else */
-    RIG rig;
+    RIG *rig;
 } hamlibcontext;
 
 static void init_hamlib()
 {
+//    rig_set_debug_level( RIG_DEBUG_NONE );
+    rig_set_debug_level( RIG_DEBUG_VERBOSE );
+
+    rig_load_all_backends();
 }
 
 static void destroy_hamlib()
@@ -46,6 +52,21 @@ static int open_hamlib_radio( void *context )
     hamlibcontext *ctxt = context;
     if ( ctxt )
     {
+        int retcode;
+        ctxt->rig = rig_init( myrigmodelid );
+        if ( ! ctxt->rig )
+        {
+            printf( "rig_open: error initializing\n" );
+            return 1;
+        }
+
+        retcode = rig_open( ctxt->rig );
+        if ( retcode != RIG_OK )
+        {
+            printf( "rig_open: error %s\n", rigerror(retcode) );
+            return 2;
+        }
+
         return 0;
     }
     // no context, error
@@ -57,6 +78,8 @@ static void close_hamlib_radio( void *context )
     hamlibcontext *ctxt = context;
     if ( ctxt )
     {
+        rig_close( ctxt->rig );
+        rig_cleanup( ctxt->rig );
     }
 }
 
