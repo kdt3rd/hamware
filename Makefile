@@ -34,7 +34,7 @@ hamware: $(FILES) $(HEADERS) Makefile
 	@gcc -o $@ $(CFLAGS) $(FILES)
 
 hamlib: plugins/hamlib.c src/plugin_register.h
-	@gcc -shared -o plugins/hamlib.so -Isrc plugins/hamlib.c -lhamlib
+	@gcc -fPIC -shared -o plugins/hamlib.so -Isrc plugins/hamlib.c -lhamlib
 
 hamware_plugins: hamlib
 
