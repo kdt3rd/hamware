@@ -1,4 +1,6 @@
-hamware
+build
+external/fldigi
+external/hamlib
 
 # Prerequisites
 *.d

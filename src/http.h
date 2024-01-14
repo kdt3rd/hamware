@@ -11,7 +11,6 @@
 
 typedef struct http_server
 {
-    int http_server;
     int https_server;
 
     void *ssl_context;

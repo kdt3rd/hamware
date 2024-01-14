@@ -5,6 +5,7 @@
 
 #include "configuration.h"
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -18,10 +19,24 @@ int init_config( configuration *conf, char *argv[], int argc )
     char *envoverride;
     int rv;
 
+    char progfullbuf[PATH_MAX+1];
+    char *progfull = realpath(argv[0], progfullbuf);
+
+    if (progfull)
+    {
+        char *progdir = strrchr(progfull, '/');
+        strcpy(progdir + 1, "plugins");
+    }
+    else
+    {
+        strcpy(progfullbuf, "./plugins");
+        progfull = progfullbuf;
+    }
+
     memset( conf, 0, sizeof(configuration) );
 
     conf->application_dir = strdup( "." );
-    conf->plugin_dir = strdup( "./plugins" );
+    conf->plugin_dir = strdup( progfull );
     conf->radio_plugname = strdup( "hamlib" );
 
     /* load the config file */

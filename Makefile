@@ -1,43 +1,34 @@
+.SUFFIXES:
+.DEFAULT: all
+.ONESHELL:
+.NOTPARALLEL:
+.SILENT:
 
-.PHONY: all clean
-.DEFAULT: opt
+.PHONY: all clean distclean graph config release build debug win64 cppcheck tidy cmds format
 
-SRCDIR := $(CURDIR)
+mkfile := $(abspath $(lastword $(MAKEFILE_LIST)))
+srcdir := $(dir $(mkfile))
+TARGETS := $(filter-out all clean build distclean,$(MAKECMDGOALS))
 
-FILES := \
-  src/configuration.c \
-  src/daemonize.c \
-  src/http.c \
-  src/jsonrpc.c \
-  src/main.c \
-  src/plugins.c
+mkfile := $(abspath $(lastword $(MAKEFILE_LIST)))
+srcdir := $(dir $(mkfile))
+TARGETS := $(filter-out all clean build distclean,$(MAKECMDGOALS))
 
-HEADERS := \
-  src/config.h \
-  src/configuration.h \
-  src/http.h \
-  src/jsonrpc.h \
-  src/plugins.h \
-  src/plugin_register.h \
-  src/plugins.h \
-  src/daemonize.h
+DEFAULT_BUILD_TYPE := Debug
 
-#sanitize:=-fsanitize=address
-sanitize:=#
-optimize:=-O3
-#optimize:=-g
-CFLAGS:=$(optimize) $(sanitize)
+all: build
 
-all: hamware hamware_plugins
+$(srcdir)/build/build.ninja:
+	@./clone.sh
+	@cmake -Wdev -DCMAKE_BUILD_TYPE=$(DEFAULT_BUILD_TYPE) -S$(srcdir) -B$(srcdir)/build -G Ninja
 
-hamware: $(FILES) $(HEADERS) Makefile
-	@gcc -o $@ $(CFLAGS) $(FILES)
-
-hamlib: plugins/hamlib.c src/plugin_register.h
-	@gcc -fPIC -shared -o plugins/hamlib.so -Isrc plugins/hamlib.c -lhamlib
-
-hamware_plugins: hamlib
+build: $(srcdir)/build/build.ninja
+	@cd $(srcdir)/build; ninja $(TARGETS)
 
 clean:
-	@rm -f hamware
-	@rm -f plugins/hamlib.so
+	@cmake --build $(srcdir)/build --target clean
+
+distclean:
+	@rm -rf $(srcdir)/build
+
+$(TARGETS) :: all ;
