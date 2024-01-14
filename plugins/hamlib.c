@@ -9,7 +9,7 @@
 #include <malloc.h>
 #include <string.h>
 
-rig_model_t myrigmodelid = 3061;
+rig_model_t myrigmodelid = RIG_MODEL_IC7200;
 
 typedef struct hamlib_context
 {
@@ -34,6 +34,7 @@ static void *create_hamlib_radio()
     hamlibcontext *ctxt = malloc( sizeof(hamlibcontext) );
     if ( ctxt )
     {
+        ctxt->rig = NULL;
     }
     return ctxt;
 }
@@ -64,6 +65,8 @@ static int open_hamlib_radio( void *context )
         if ( retcode != RIG_OK )
         {
             printf( "rig_open: error %s\n", rigerror(retcode) );
+            rig_cleanup( ctxt->rig );
+            ctxt->rig = NULL;
             return 2;
         }
 
@@ -76,7 +79,7 @@ static int open_hamlib_radio( void *context )
 static void close_hamlib_radio( void *context )
 {
     hamlibcontext *ctxt = context;
-    if ( ctxt )
+    if ( ctxt && ctxt->rig )
     {
         rig_close( ctxt->rig );
         rig_cleanup( ctxt->rig );

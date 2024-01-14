@@ -70,11 +70,12 @@ static int connect_radio( ham_server *server )
         }
         server->r.plug = prov;
         server->r.context = ( prov->create ) ? prov->create() : NULL;
-        return 0;
+
+        return ( prov->open_radio ) ? prov->open_radio( server->r.context ) : 0;
     }
-    
+
     printf( "\nNo radio providers found\n" );
-    return 1;        
+    return 1;
 }
 
 static void disconnect_radio( ham_server *server )
@@ -175,7 +176,7 @@ int main( int argc, char *argv[] )
         destroy_config( &(server.config) );
         return rv;
     }
-    
+
     /* 5. Create http server
      *
      * websocket handler for streams, audio / data
@@ -200,7 +201,7 @@ int main( int argc, char *argv[] )
             printf( "\nError handling server, exiting...\n" );
             break;
         }
-        
+
         rv = handle_radio_data( &server );
         if ( rv != 0 )
         {
@@ -216,6 +217,6 @@ int main( int argc, char *argv[] )
     disconnect_radio( &(server) );
     destroy_plugins( &(server.plugins) );
     destroy_config( &(server.config) );
-    
+
     return 0;
 }

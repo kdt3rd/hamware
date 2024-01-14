@@ -10,6 +10,8 @@ project(blocks
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_C_VISIBILITY_PRESET hidden)
+set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 
 execute_process(COMMAND
   git log -1 --format=%ad --date=local
@@ -27,6 +29,18 @@ set(HAMLIB_RIG_SOURCE)
 macro(hamlib_add_rig dir)
   set(cursrc ${ARGN})
   list(TRANSFORM cursrc PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/external/hamlib/rigs/${dir}/")
+  list(APPEND HAMLIB_RIG_SOURCE ${cursrc})
+endmacro()
+
+macro(hamlib_add_rot dir)
+  set(cursrc ${ARGN})
+  list(TRANSFORM cursrc PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/external/hamlib/rotators/${dir}/")
+  list(APPEND HAMLIB_RIG_SOURCE ${cursrc})
+endmacro()
+
+macro(hamlib_add_amp dir)
+  set(cursrc ${ARGN})
+  list(TRANSFORM cursrc PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/external/hamlib/amplifiers/${dir}/")
   list(APPEND HAMLIB_RIG_SOURCE ${cursrc})
 endmacro()
 
@@ -196,6 +210,117 @@ hamlib_add_rig(anytone
   anytone.c d578.c anytone.h
 )
 
+hamlib_add_rig(winradio
+  wr1000.c wr1500.c wr1550.c wr3100.c wr3150.c wr3500.c wr3700.c
+  g303.c g305.c
+  winradio.c winradio.h linradio/radio_ioctl.h linradio/wrapi.h
+  g313-posix.c linradio/wrg313api.c linradio/wrg313api.h
+)
+
+hamlib_add_rot(amsat
+  if100.c
+)
+
+hamlib_add_rot(apex
+  apex.c apex.h sharedloop.c
+)
+
+hamlib_add_rot(ars
+  ars.c ars.h
+)
+
+hamlib_add_rot(celestron
+  celestron.c celestron.h
+)
+
+hamlib_add_rot(cnctrk
+  cnctrk.c
+)
+
+hamlib_add_rot(grbltrk
+  grbltrk.c
+)
+
+hamlib_add_rot(easycomm
+  easycomm.c easycomm.h
+)
+
+hamlib_add_rot(ether6
+  ether6.c ether6.h
+)
+
+hamlib_add_rot(flir
+  flir.c flir.h
+)
+
+hamlib_add_rot(fodtrack
+  fodtrack.c fodtrack.h
+)
+
+hamlib_add_rot(gs232a
+  gs232a.c gs232a.h gs232b.c gs232.c
+)
+
+hamlib_add_rot(heathkit
+  hd1780.c hd1780.h
+)
+
+hamlib_add_rot(m2
+  rc2800.c rc2800.h
+)
+
+hamlib_add_rot(meade
+  meade.c meade.h
+)
+
+hamlib_add_rot(rotorez
+  rotorez.c rotorez.h
+)
+
+hamlib_add_rot(sartek
+  sartek.c sartek.h
+)
+
+hamlib_add_rot(saebrtrack
+  saebrtrack.c saebrtrack.h
+)
+
+hamlib_add_rot(spid
+  spid.c spid.h
+)
+
+hamlib_add_rot(ts7400
+  ts7400.c ts7400.h
+)
+
+hamlib_add_rot(prosistel
+  prosistel.c prosistel.h
+)
+
+hamlib_add_rot(ioptron
+  rot_ioptron.c rot_ioptron.h
+)
+
+hamlib_add_rot(satel
+  satel.c satel.h
+)
+
+hamlib_add_rot(radant
+  radant.c radant.h
+)
+
+hamlib_add_amp(elecraft
+  kpa1500.c kpa.c kpa.h
+)
+
+hamlib_add_amp(gemini
+  gemini.c dx1200.c gemini.h
+)
+
+hamlib_add_amp(expert
+  expert.c expert.h
+)
+
 add_library(hamlib_lib STATIC
   external/hamlib/lib/cJSON.c
   external/hamlib/lib/cJSON.h
@@ -283,11 +408,29 @@ add_library(hamlib_lib STATIC
   ${HAMLIB_RIG_SOURCE}
 )
 
+find_path(
+    INDI_INCLUDE_DIR
+    indidevapi.h
+    PATH_SUFFIXES libindi
+    DOC "Include directory for INDI"
+)
+if (INDI_INCLUDE_DIR)
+  set(cursrc indi.c indi_wrapper.cpp indi_wrapper.hpp indi_wrapper.h)
+  list(TRANSFORM cursrc PREPEND "${CMAKE_CURRENT_SOURCE_DIR}/external/hamlib/rotators/indi/")
+  target_sources(hamlib_lib PRIVATE ${cursrc})
+  target_compile_definitions(hamlib_lib PRIVATE HAVE_LIBINDI)
+  target_include_directories(hamlib_lib PUBLIC ${INDI_INCLUDE_DIR})
+  target_link_libraries(hamlib_lib PRIVATE -lindiclient)
+endif()
+
+target_link_libraries(hamlib_lib PRIVATE -lusb-1.0)
+
 target_compile_definitions(hamlib_lib PRIVATE IN_HAMLIB)
 target_include_directories(hamlib_lib PUBLIC external/hamlib/include)
 target_include_directories(hamlib_lib PRIVATE external/hamlib/include/hamlib)
 target_include_directories(hamlib_lib PRIVATE external/hamlib/src)
 target_include_directories(hamlib_lib PRIVATE external/hamlib/lib)
+target_include_directories(hamlib_lib PRIVATE external/hamlib/rigs/winradio)
 target_include_directories(hamlib_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include")
 target_include_directories(hamlib_lib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/include/hamlib")
 
