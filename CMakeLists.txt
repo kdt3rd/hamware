@@ -283,6 +283,7 @@ add_library(hamlib_lib STATIC
   ${HAMLIB_RIG_SOURCE}
 )
 
+target_compile_definitions(hamlib_lib PRIVATE IN_HAMLIB)
 target_include_directories(hamlib_lib PUBLIC external/hamlib/include)
 target_include_directories(hamlib_lib PRIVATE external/hamlib/include/hamlib)
 target_include_directories(hamlib_lib PRIVATE external/hamlib/src)
