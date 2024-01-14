@@ -7,6 +7,8 @@
 
 #include <stdint.h>
 
+#include "hamware_config.h"
+
 typedef struct signal_processor_plugin_v1
 {
     
@@ -20,6 +22,8 @@ typedef struct radio_provider_plugin_v1
     /* TODO: config args? */
     void *(*create_radio)( );
     void (*destroy_radio)( void *context );
+
+    int (*set_configuration)( void *context, hamware_config_entry_t config, const char *val );
 
     /* TODO: config args? */
     int (*open_radio)( void *context );

@@ -68,9 +68,38 @@ static int connect_radio( ham_server *server )
         {
             printf( "\nUsing default radio provider '%s'\n", prov->info.name );
         }
-        server->r.plug = prov;
         server->r.context = ( prov->create ) ? prov->create() : NULL;
 
+        // TODO: turn into loop over configuration entries
+        if ( prov->set_configuration )
+        {
+            int rv = prov->set_configuration( server->r.context, HAMWARE_MODEL_NAME,
+                                              server->config.radio_device_name );
+            if (rv != 0)
+            {
+                printf( "\nUnable to configure radio provider '%s'\n",
+                        server->config.radio_plugname );
+
+                if ( prov->destroy )
+                    prov->destroy( server->r.context );
+                server->r.context = NULL;
+                return 1;
+            }
+
+            rv = prov->set_configuration( server->r.context, HAMWARE_SERIAL_PORT,
+                                              server->config.radio_portname );
+            if (rv != 0)
+            {
+                printf( "\nUnable to configure radio provider '%s'\n",
+                        server->config.radio_plugname );
+
+                if ( prov->destroy )
+                    prov->destroy( server->r.context );
+                server->r.context = NULL;
+                return 1;
+            }
+        }
+        server->r.plug = prov;
         return ( prov->open_radio ) ? prov->open_radio( server->r.context ) : 0;
     }
 
@@ -102,6 +131,7 @@ static int handle_radio_data( ham_server *server )
     /* TODO: change this if hamlib can do a file descriptor so we can wait */
     if ( server->r.plug )
     {
+        return 0;
     }
     return 1;
 }
@@ -208,6 +238,9 @@ int main( int argc, char *argv[] )
             printf( "\nError handling radio data, exiting...\n" );
             break;
         }
+
+        printf( "Sleeping...\n" );
+        sleep(1);
     }
 
     /* 7. cleanup, destroy */

@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include "configuration.h"
+#include "hamware_config.h"
 
 ////////////////////////////////////////
 
@@ -36,6 +37,8 @@ typedef struct hamware_radio_provider
     /* need a config? */
     void *(*create)();
     void (*destroy)( void *context );
+
+    int (*set_configuration)( void *context, hamware_config_entry_t config, const char *val );
 
     int (*open_radio)( void *context );
     void (*close_radio)( void *context );

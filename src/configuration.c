@@ -37,7 +37,10 @@ int init_config( configuration *conf, char *argv[], int argc )
 
     conf->application_dir = strdup( "." );
     conf->plugin_dir = strdup( progfull );
+    // hamlib ICOM IC7200 is 3061
+    conf->radio_device_name = strdup( "3061" );
     conf->radio_plugname = strdup( "hamlib" );
+    conf->radio_portname = strdup( "/dev/ttyUSB0" );
 
     /* load the config file */
     rv = load_config_toml( conf );
@@ -76,6 +79,8 @@ void destroy_config( configuration *conf )
             free( conf->radio_config );
         if ( conf->radio_plugname )
             free( conf->radio_plugname );
+        if ( conf->radio_portname )
+            free( conf->radio_portname );
 
         if ( conf->jsonrpc_interface )
             free( conf->jsonrpc_interface );

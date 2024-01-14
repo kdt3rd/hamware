@@ -15,6 +15,7 @@ typedef struct configuration_v1
     char *radio_device_name;
     char *radio_config; /* file or string? */
     char *radio_plugname; /* identifies which plugin to use for radio device */
+    char *radio_portname; /* identifies which plugin to use for radio device */
 
     char *jsonrpc_interface; /* if null, all network cards */
     int jsonrpc_port;
